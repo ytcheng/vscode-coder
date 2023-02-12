@@ -104,6 +104,7 @@ export class Commands {
   public async open(...args: string[]): Promise<void> {
     let workspaceOwner: string
     let workspaceName: string
+    let workspaceAgent: string
     let folderPath: string | undefined
 
     if (args.length === 0) {
@@ -165,10 +166,52 @@ export class Commands {
 
       if (agents.length === 1) {
         folderPath = agents[0].expanded_directory
-      }
+        workspaceAgent = agents[0].name
+      }else{
+          const agentQuickPick = vscode.window.createQuickPick()
+          let lastAgents: WorkspaceAgent[]
+          agentQuickPick.title = `Connect to a agent`;
+  
+          agentQuickPick.busy = true;
+          lastAgents = agents
+          const agentItems: vscode.QuickPickItem[] = agents.map((agent) => {
+              let icon = "$(debug-start)"
+              if (agent.status !== "connected") {
+                icon = "$(debug-stop)"
+              }
+              return {
+                alwaysShow: true,
+                label: `${icon} ${agent.name}`,
+                detail: `${agent.name} • Status: ${agent.status}`,
+              }
+          })
+          agentQuickPick.items = agentItems
+          agentQuickPick.busy = false
+          agentQuickPick.show()
+  
+          const agent = await new Promise<WorkspaceAgent | undefined>((resolve) => {
+            agentQuickPick.onDidHide(() => {
+              resolve(undefined)
+            })
+            agentQuickPick.onDidChangeSelection((selected) => {
+              if (selected.length < 1) {
+                return resolve(undefined)
+              }
+              const agent = lastAgents[quickPick.items.indexOf(selected[0])]
+              resolve(agent)
+            })
+          })
+          if(agent != undefined){
+            workspaceAgent = agent.name
+          }else{
+            workspaceAgent = ''
+          }
+        }
+      
     } else {
       workspaceOwner = args[0]
       workspaceName = args[1]
+      workspaceAgent = args[2]
       // workspaceAgent is reserved for args[2], but multiple agents aren't supported yet.
       folderPath = args[3]
     }
